@@ -1,0 +1,4 @@
+venv/
+.env
+backend/cert.pem
+backend/key.pem
