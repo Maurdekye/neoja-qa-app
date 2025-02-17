@@ -278,6 +278,7 @@ def watch_collection():
         for change in stream:
             logging.info(f'Database changed: {change["operationType"]}')
             full_doc = change.get("fullDocument", {})
+            logging.info(f'document: {full_doc}')
             question_oid = full_doc.get("question_id") if full_doc else None
             question_id_str = str(question_oid) if question_oid else None
             room_name = f"question_{question_id_str}" if question_id_str else None
@@ -291,26 +292,6 @@ def watch_collection():
                 # Broadcast the insert event to the appropriate room
                 socketio.emit("response_added", full_doc, room=room_name)
                 logging.info(f"Broadcasting response addition to {room_name}: {full_doc}")
-
-            elif change["operationType"] == "update" and room_name:
-                # Fetch the updated document
-                updated_doc = responses_collection.find_one({"_id": change["documentKey"]["_id"]})
-                if updated_doc:
-                    updated_doc["_id"] = str(updated_doc["_id"])
-                    updated_doc["question_id"] = question_id_str
-                    full_doc["created_at"] = full_doc["created_at"].timestamp()
-
-                    # Broadcast the update event to the appropriate room
-                    socketio.emit("response_updated", updated_doc, room=room_name)
-                    logging.info(f"Broadcasting response update to {room_name}: {updated_doc}")
-
-            elif change["operationType"] == "delete" and room_name:
-                # Broadcast the delete event to the appropriate room
-
-                doc = {"_id": str(change["documentKey"]["_id"])}
-
-                socketio.emit("response_deleted", doc, room=room_name)
-                logging.info(f"Broadcasting response deletion to {room_name}: {doc['_id']}")
 
 if __name__ == "__main__":
     # Start a background thread to watch for MongoDB changes

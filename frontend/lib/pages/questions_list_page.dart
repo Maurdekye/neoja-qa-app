@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/api_service.dart';
+import '../models/question.dart';
 
 class QuestionsListPage extends StatefulWidget {
   @override
@@ -8,7 +9,7 @@ class QuestionsListPage extends StatefulWidget {
 }
 
 class _QuestionsListPageState extends State<QuestionsListPage> {
-  List<dynamic> _questions = [];
+  List<Question> _questions = [];
   bool _loading = false;
 
   @override
@@ -43,13 +44,13 @@ class _QuestionsListPageState extends State<QuestionsListPage> {
               itemBuilder: (context, index) {
                 final question = _questions[index];
                 return ListTile(
-                  title: Text(question['title'] ?? 'No title'),
-                  subtitle: Text(question['_id'] ?? ''),
+                  title: Text(question.title),
+                  subtitle: Text(question.body),
                   onTap: () {
                     Navigator.pushNamed(
                       context,
                       '/questionDetail',
-                      arguments: question['_id'],
+                      arguments: question.id,
                     );
                   },
                 );

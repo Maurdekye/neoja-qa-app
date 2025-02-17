@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/api_service.dart';
 import '../services/socket_service.dart';
+import '../models/question.dart';
+import '../models/response.dart';
 
 class QuestionDetailPage extends StatefulWidget {
   final String questionId;
@@ -12,10 +14,11 @@ class QuestionDetailPage extends StatefulWidget {
 }
 
 class _QuestionDetailPageState extends State<QuestionDetailPage> {
-  Map<String, dynamic>? question;
-  List<dynamic> responses = [];
+  Question? question;
+  List<Response> responses = [];
   bool isLoading = false;
   final TextEditingController responseController = TextEditingController();
+  late SocketService socketService;
 
   @override
   void initState() {
@@ -24,19 +27,16 @@ class _QuestionDetailPageState extends State<QuestionDetailPage> {
     _fetchResponses();
 
     // Subscribe to socket updates for this question's room
-    final socketService = Provider.of<SocketService>(context, listen: false);
+    socketService = Provider.of<SocketService>(context, listen: false);
     socketService.subscribeToQuestion(
       widget.questionId,
-      onNewResponse: _handleResponseAdded,
-      onResponseUpdated: _handleResponseUpdated,
-      onResponseDeleted: _handleResponseDeleted,
+      _handleResponseAdded,
     );
   }
 
   @override
   void dispose() {
     // Unsubscribe from socket updates
-    final socketService = Provider.of<SocketService>(context, listen: false);
     socketService.unsubscribeFromQuestion(widget.questionId);
     responseController.dispose();
     super.dispose();
@@ -67,28 +67,15 @@ class _QuestionDetailPageState extends State<QuestionDetailPage> {
     }
   }
 
-  void _handleResponseAdded(dynamic data) {
-    print('New response: $data');
-    setState(() {
-      responses.insert(0, data);
-    });
-  }
-
-  void _handleResponseUpdated(dynamic data) {
-    print('Response updated: $data');
-    setState(() {
-      final index = responses.indexWhere((r) => r['_id'] == data['_id']);
-      if (index != -1) {
-        responses[index] = data;
-      }
-    });
-  }
-
-  void _handleResponseDeleted(dynamic data) {
-    print('Response deleted: $data');
-    setState(() {
-      responses.removeWhere((r) => r['_id'] == data['_id']);
-    });
+  void _handleResponseAdded(Response response) {
+    print('New response: $response');
+    try {
+      setState(() {
+        responses.insert(0, response);
+      });
+    } catch (e) {
+      print("Error adding new response: $e");
+    }
   }
 
   Future<void> _submitResponse() async {
@@ -117,7 +104,13 @@ class _QuestionDetailPageState extends State<QuestionDetailPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(question?['title'] ?? 'Question Detail'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(question?.title ?? "Loading..."),
+            Text(question?.body ?? "", style: TextStyle(fontSize: 12)),
+          ],
+        ),
       ),
       body: Column(
         children: [
@@ -128,8 +121,8 @@ class _QuestionDetailPageState extends State<QuestionDetailPage> {
               itemBuilder: (context, index) {
                 final response = responses[index];
                 return ListTile(
-                  title: Text(response['text'] ?? 'No text'),
-                  subtitle: Text(response['author'] ?? 'anonymous'),
+                  title: Text(response.text),
+                  subtitle: Text(response.author),
                 );
               },
             ),
