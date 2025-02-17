@@ -13,7 +13,7 @@ class Question {
 
   factory Question.fromJson(Map<String, dynamic> json) {
     return Question(
-      id: json['_id'] as String,
+      id: json['id'] as String,
       title: json['title'] as String,
       body: json['body'] as String,
       category: json['category'] as String,
@@ -22,7 +22,7 @@ class Question {
 
   Map<String, dynamic> toJson() {
     return {
-      '_id': id,
+      'id': id,
       'title': title,
       'body': body,
       'category': category,

@@ -1,18 +1,17 @@
 import os
-import sys
 import logging
 from flask import Flask, request, jsonify
 from flask_socketio import SocketIO, join_room, leave_room
 from pymongo import MongoClient
-from threading import Thread
-from datetime import datetime
 from bson import ObjectId
 from flask_cors import CORS
+from models import QuestionModel, ResponseModel
+
+logging.basicConfig(level=logging.INFO)
 
 # ------------------------------------------------------------------------------
 # App Initialization
 # ------------------------------------------------------------------------------
-logging.basicConfig(level=logging.INFO)
 
 app = Flask(__name__)
 CORS(app)
@@ -42,17 +41,15 @@ def create_question():
     data = request.json
     if not data:
         return jsonify({"error": "Invalid JSON"}), 400
+    try:
+        new_question = QuestionModel(**data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
 
-    new_question = {
-        "title": data.get("title"),
-        "body": data.get("body"),
-        "category": data.get("category", "general"),
-        "created_at": datetime.utcnow()
-    }
-    result = questions_collection.insert_one(new_question)
-    new_question["_id"] = str(result.inserted_id)
+    result = questions_collection.insert_one(new_question.model_dump())
+    new_question.id = str(result.inserted_id)
 
-    return jsonify(new_question), 201
+    return jsonify(new_question.model_dump()), 201
 
 
 @app.route("/questions", methods=["GET"])
@@ -70,8 +67,8 @@ def list_questions():
 
     results = []
     for q in questions:
-        q["_id"] = str(q["_id"])
-        results.append(q)
+        question = QuestionModel.model_validate(q)
+        results.append(question.model_dump())
 
     return jsonify(results), 200
 
@@ -83,8 +80,8 @@ def get_question(question_id):
     """
     q = questions_collection.find_one({"_id": ObjectId(question_id)})
     if q:
-        q["_id"] = str(q["_id"])
-        return jsonify(q), 200
+        question = QuestionModel.model_validate(q)
+        return jsonify(question.model_dump()), 200
     return jsonify({"error": "Question not found"}), 404
 
 @app.route("/questions/<question_id>", methods=["PUT"])
@@ -101,13 +98,8 @@ def update_question(question_id):
     data = request.json
     if not data:
         return jsonify({"error": "Invalid JSON"}), 400
-
-    update_fields = {
-        "title": data.get("title"),
-        "body": data.get("body"),
-        "category": data.get("category")
-    }
-    update_fields = {k: v for k, v in update_fields.items() if v is not None}
+    
+    update_fields = { k: data[k] for k in ["title", "body", "category"] if k in data }
 
     result = questions_collection.update_one(
         {"_id": ObjectId(question_id)},
@@ -118,22 +110,25 @@ def update_question(question_id):
         return jsonify({"error": "Question not found"}), 404
 
     updated_question = questions_collection.find_one({"_id": ObjectId(question_id)})
-    updated_question["_id"] = str(updated_question["_id"])
+    question = QuestionModel.model_validate(updated_question)
 
-    return jsonify(updated_question), 200
+    return jsonify(question.model_dump()), 200
 
 
 @app.route("/questions/<question_id>", methods=["DELETE"])
 def delete_question(question_id):
     """
-    Delete a question by ID.
+    Delete a question by ID and all associated responses.
     """
     result = questions_collection.delete_one({"_id": ObjectId(question_id)})
 
     if result.deleted_count == 0:
         return jsonify({"error": "Question not found"}), 404
 
-    return jsonify({"message": "Question deleted"}), 200
+    # Cascade delete responses associated with the question
+    responses_collection.delete_many({"question_id": ObjectId(question_id)})
+
+    return jsonify({"message": "Question and associated responses deleted"}), 200
 
 
 @app.route("/questions/<question_id>/responses", methods=["POST"])
@@ -149,24 +144,25 @@ def create_response(question_id):
     data = request.json
     if not data:
         return jsonify({"error": "Invalid JSON"}), 400
-
-    question_id = ObjectId(question_id)
-    q = questions_collection.find_one({"_id": question_id})
-    if not q:
+    try:
+        new_response = ResponseModel(question_id=question_id, **data)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 400
+    
+    question = questions_collection.find_one({"_id": ObjectId(question_id)})
+    if not question:
         return jsonify({"error": "Question not found"}), 404
+    
+    logging.info(f"new_response: {new_response}")
+    
+    response_data = new_response.model_dump()
+    response_data["question_id"] = ObjectId(response_data["question_id"])
+    result = responses_collection.insert_one(response_data)
+    new_response.id = str(result.inserted_id)
+    
+    logging.info(f"new_response: {new_response}")
 
-    new_response = {
-        "question_id": question_id,
-        "text": data.get("text"),
-        "author": data.get("author", "anonymous"),
-        "created_at": datetime.utcnow()
-    }
-    result = responses_collection.insert_one(new_response)
-    new_response["_id"] = str(result.inserted_id)
-    new_response["question_id"] = str(question_id)
-    new_response["created_at"] = new_response["created_at"].timestamp()
-
-    return jsonify(new_response), 201
+    return jsonify(new_response.model_dump()), 201
 
 
 @app.route("/questions/<question_id>/responses", methods=["GET"])
@@ -178,12 +174,8 @@ def list_responses(question_id):
     
     responses = responses_collection.find(query).sort("created_at", -1)
 
-    results = []
-    for r in responses:
-        r["_id"] = str(r["_id"])
-        r["question_id"] = str(r["question_id"])
-        r["created_at"] = r["created_at"].timestamp()
-        results.append(r)
+    results = [ResponseModel.model_validate(r).model_dump() for r in responses]
+    logging.info(f"results: {results}")
 
     return jsonify(results), 200
 
@@ -201,11 +193,7 @@ def update_response(response_id):
     if not data:
         return jsonify({"error": "Invalid JSON"}), 400
 
-    update_fields = {
-        "text": data.get("text"),
-        "author": data.get("author")
-    }
-    update_fields = {k: v for k, v in update_fields.items() if v is not None}
+    update_fields = { k: data[k] for k in ["text", "author"] if k in data }
 
     result = responses_collection.update_one(
         {"_id": ObjectId(response_id)},
@@ -216,11 +204,8 @@ def update_response(response_id):
         return jsonify({"error": "Response not found"}), 404
 
     updated_response = responses_collection.find_one({"_id": ObjectId(response_id)})
-    updated_response["_id"] = str(updated_response["_id"])
-    updated_response["question_id"] = str(updated_response["question_id"])
-    updated_response["created_at"] = updated_response["created_at"].timestamp()
-
-    return jsonify(updated_response), 200
+    response = ResponseModel.model_validate(updated_response)
+    return jsonify(response.model_dump()), 200
 
 
 @app.route("/responses/<response_id>", methods=["DELETE"])
@@ -271,35 +256,25 @@ def watch_collection():
     Watches the 'responses' collection for inserts/updates/deletes, then broadcasts
     real-time updates to the room that matches the 'question_id'.
     """
-    logging.basicConfig(level=logging.INFO)
     logging.info("Initializing change stream watcher")
 
     with responses_collection.watch() as stream:
         for change in stream:
-            logging.info(f'Database changed: {change["operationType"]}')
-            full_doc = change.get("fullDocument", {})
-            logging.info(f'document: {full_doc}')
-            question_oid = full_doc.get("question_id") if full_doc else None
-            question_id_str = str(question_oid) if question_oid else None
-            room_name = f"question_{question_id_str}" if question_id_str else None
-
-            if change["operationType"] == "insert" and room_name:
-                # Convert ObjectId fields to strings for JSON-serializable payload
-                full_doc["_id"] = str(full_doc["_id"])
-                full_doc["question_id"] = question_id_str
-                full_doc["created_at"] = full_doc["created_at"].timestamp()
-
-                # Broadcast the insert event to the appropriate room
-                socketio.emit("response_added", full_doc, room=room_name)
-                logging.info(f"Broadcasting response addition to {room_name}: {full_doc}")
+            if change["operationType"] == "insert":
+                full_doc = change.get("fullDocument")
+                question_id = full_doc.get("question_id")
+                room_name = f"question_{question_id}"
+                response = ResponseModel.model_validate(full_doc)
+                socketio.emit("response_added", response.model_dump(), room=room_name)
+                logging.info(f"Broadcasting response addition to {room_name}: {response}")
 
 if __name__ == "__main__":
     # Start a background thread to watch for MongoDB changes
     socketio.start_background_task(watch_collection)
 
     socketio.run(
-        app, 
-        host=os.getenv("FLASK_RUN_HOST", "0.0.0.0"), 
+        app,
+        host=os.getenv("FLASK_RUN_HOST", "0.0.0.0"),
         port=int(os.getenv("FLASK_RUN_PORT", 5000)),
         debug=True,
         allow_unsafe_werkzeug=True

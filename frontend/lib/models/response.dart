@@ -15,7 +15,7 @@ class Response {
 
   factory Response.fromJson(Map<String, dynamic> json) {
     return Response(
-      id: json['_id'] as String,
+      id: json['id'] as String,
       questionId: json['question_id'] as String,
       text: json['text'] as String,
       author: json['author'] as String,
@@ -25,7 +25,7 @@ class Response {
 
   Map<String, dynamic> toJson() {
     return {
-      '_id': id,
+      'id': id,
       'question_id': questionId,
       'text': text,
       'author': author,
