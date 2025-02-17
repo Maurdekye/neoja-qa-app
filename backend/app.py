@@ -1,16 +1,21 @@
 import os
+import sys
+import logging
 from flask import Flask, request, jsonify
 from flask_socketio import SocketIO, join_room, leave_room
 from pymongo import MongoClient
 from threading import Thread
 from datetime import datetime
 from bson import ObjectId
+from flask_cors import CORS
 
 # ------------------------------------------------------------------------------
 # App Initialization
 # ------------------------------------------------------------------------------
+logging.basicConfig(level=logging.INFO)
 
 app = Flask(__name__)
+CORS(app)
 app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 socketio = SocketIO(app, cors_allowed_origins="*")
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/qanda")
@@ -159,6 +164,7 @@ def create_response(question_id):
     result = responses_collection.insert_one(new_response)
     new_response["_id"] = str(result.inserted_id)
     new_response["question_id"] = str(question_id)
+    new_response["created_at"] = new_response["created_at"].timestamp()
 
     return jsonify(new_response), 201
 
@@ -176,6 +182,7 @@ def list_responses(question_id):
     for r in responses:
         r["_id"] = str(r["_id"])
         r["question_id"] = str(r["question_id"])
+        r["created_at"] = r["created_at"].timestamp()
         results.append(r)
 
     return jsonify(results), 200
@@ -211,6 +218,7 @@ def update_response(response_id):
     updated_response = responses_collection.find_one({"_id": ObjectId(response_id)})
     updated_response["_id"] = str(updated_response["_id"])
     updated_response["question_id"] = str(updated_response["question_id"])
+    updated_response["created_at"] = updated_response["created_at"].timestamp()
 
     return jsonify(updated_response), 200
 
@@ -240,7 +248,7 @@ def handle_subscribe(data):
     if question_id:
         room_name = f"question_{question_id}"
         join_room(room_name)
-        print(f"Client subscribed to question: {room_name}")
+        logging.info(f"Client subscribed to question: {room_name}")
 
 
 @socketio.on('unsubscribe')
@@ -252,7 +260,7 @@ def handle_unsubscribe(data):
     if question_id:
         room_name = f"question_{question_id}"
         leave_room(room_name)
-        print(f"Client unsubscribed from question: {room_name}")
+        logging.info(f"Client unsubscribed from question: {room_name}")
 
 # ------------------------------------------------------------------------------
 # MongoDB Change Stream Watching
@@ -263,9 +271,12 @@ def watch_collection():
     Watches the 'responses' collection for inserts/updates/deletes, then broadcasts
     real-time updates to the room that matches the 'question_id'.
     """
+    logging.basicConfig(level=logging.INFO)
+    logging.info("Initializing change stream watcher")
 
     with responses_collection.watch() as stream:
         for change in stream:
+            logging.info(f'Database changed: {change["operationType"]}')
             full_doc = change.get("fullDocument", {})
             question_oid = full_doc.get("question_id") if full_doc else None
             question_id_str = str(question_oid) if question_oid else None
@@ -275,10 +286,11 @@ def watch_collection():
                 # Convert ObjectId fields to strings for JSON-serializable payload
                 full_doc["_id"] = str(full_doc["_id"])
                 full_doc["question_id"] = question_id_str
+                full_doc["created_at"] = full_doc["created_at"].timestamp()
 
                 # Broadcast the insert event to the appropriate room
                 socketio.emit("response_added", full_doc, room=room_name)
-                print(f"Broadcasting response addition to {room_name}: {full_doc}")
+                logging.info(f"Broadcasting response addition to {room_name}: {full_doc}")
 
             elif change["operationType"] == "update" and room_name:
                 # Fetch the updated document
@@ -286,27 +298,28 @@ def watch_collection():
                 if updated_doc:
                     updated_doc["_id"] = str(updated_doc["_id"])
                     updated_doc["question_id"] = question_id_str
+                    full_doc["created_at"] = full_doc["created_at"].timestamp()
 
                     # Broadcast the update event to the appropriate room
                     socketio.emit("response_updated", updated_doc, room=room_name)
-                    print(f"Broadcasting response update to {room_name}: {updated_doc}")
+                    logging.info(f"Broadcasting response update to {room_name}: {updated_doc}")
 
             elif change["operationType"] == "delete" and room_name:
                 # Broadcast the delete event to the appropriate room
-                socketio.emit("response_deleted", {"_id": str(change["documentKey"]["_id"])}, room=room_name)
-                print(f"Broadcasting response deletion to {room_name}: {change['documentKey']['_id']}")
 
-# ------------------------------------------------------------------------------
-# Entrypoint
-# ------------------------------------------------------------------------------
+                doc = {"_id": str(change["documentKey"]["_id"])}
+
+                socketio.emit("response_deleted", doc, room=room_name)
+                logging.info(f"Broadcasting response deletion to {room_name}: {doc['_id']}")
 
 if __name__ == "__main__":
     # Start a background thread to watch for MongoDB changes
-    Thread(target=watch_collection, daemon=True).start()
+    socketio.start_background_task(watch_collection)
 
     socketio.run(
         app, 
         host=os.getenv("FLASK_RUN_HOST", "0.0.0.0"), 
-        port=int(os.getenv("FLASK_RUN_PORT", 5000)), 
+        port=int(os.getenv("FLASK_RUN_PORT", 5000)),
         debug=True,
+        allow_unsafe_werkzeug=True
     )

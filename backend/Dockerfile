@@ -10,6 +10,4 @@ COPY . /app
 
 EXPOSE 5000
 
-ENV FLASK_APP=app.py
-
-CMD ["flask", "run"]
+CMD ["python", "app.py"]

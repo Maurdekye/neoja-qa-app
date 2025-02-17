@@ -1,28 +1,50 @@
 services:
-  mongodb:
+  database:
     image: mongo:latest
-    container_name: qanda_mongodb
-    environment:
-      - MONGO_INITDB_DATABASE=qanda
+    container_name: database
+    command: ["--replSet", "rs0", "--bind_ip_all", "--port", "27017"]
     ports:
-      - "27017:27017"
+      - 27017:27017
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: echo "try { rs.status() } catch (err) { rs.initiate({_id:'rs0',members:[{_id:0,host:'host.docker.internal:27017'}]}) }" | mongosh --port 27017 --quiet
+      interval: 5s
+      timeout: 30s
+      start_period: 0s
+      start_interval: 1s
+      retries: 30
     volumes:
-      - mongo_data:/data/db
+      - "mongo_data:/data/db"
+      - "mongo_config:/data/configdb"
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: qanda_flask
+    container_name: backend
     environment:
-      - MONGO_URI=mongodb://mongodb:27017/qanda
+      - MONGO_URI=mongodb://database:27017/qanda
       - SECRET_KEY=${SECRET_KEY}
       - FLASK_RUN_HOST=0.0.0.0
       - FLASK_RUN_PORT=5000
     depends_on:
-      - mongodb
+      - database
     ports:
       - "5000:5000"
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        FLASK_API_BASE_URL: http://localhost:5000
+    container_name: frontend
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
       
 volumes:
   mongo_data:
+  mongo_config:
