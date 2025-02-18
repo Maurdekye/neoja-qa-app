@@ -10,8 +10,6 @@ RUN flutter pub get
 
 COPY . /app
 
-RUN echo "$FLASK_API_BASE_URL"
-
 RUN flutter build web \
     --release \
     --dart-define=FLASK_API_BASE_URL=$FLASK_API_BASE_URL
