@@ -23,8 +23,7 @@ class SocketService with ChangeNotifier {
   }
 
   /// Subscribe to real-time updates for a particular question
-  /// and call [onNewResponse], [onResponseUpdated], or [onResponseDeleted] 
-  /// whenever a matching update arrives.
+  /// and call [onNewResponse] whenever a matching update arrives.
   void subscribeToQuestion(
     String questionId,
     Function(Response) onNewResponse,

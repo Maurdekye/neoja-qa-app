@@ -67,4 +67,20 @@ class APIService {
       throw Exception('Failed to create response');
     }
   }
+
+  /// Create a new question.
+  Future<String> createQuestion(String title, String body, String category) async {
+    final uri = Uri.parse('$baseUrl/questions');
+    final response = await http.post(
+      uri,
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({'title': title, 'body': body, 'category': category}),
+    );
+    if (response.statusCode == 201) {  // expecting HTTP 201 Created
+      final data = jsonDecode(response.body);
+      return data['id'];
+    } else {
+      throw Exception('Failed to create question');
+    }
+  }
 }
