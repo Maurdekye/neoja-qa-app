@@ -11,5 +11,5 @@ A simple dockerized Q&A app running on a Flask backend & a Flutter frontend, usi
 
 # Todo
 
-* https
-* typing
+* Integrate a more widely used state engine into frontend
+* Possibly refactor database interactions to use a single key system
