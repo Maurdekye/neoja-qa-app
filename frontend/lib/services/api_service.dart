@@ -3,14 +3,14 @@ import 'package:http/http.dart' as http;
 import '../models/question.dart';
 import '../models/response.dart';
 
-/// Handles HTTP communication with the Flask API.
+/// Handles HTTP communication with the Flask API
 class APIService {
   final String baseUrl;
   APIService(this.baseUrl) {
     print('APIService initialized with baseUrl: $baseUrl');
   }
 
-  /// Fetch a list of questions. Optionally filter by category.
+  /// Fetch a list of questions. Optionally filter by category
   Future<List<Question>> fetchQuestions([String? category]) async {
     final uri = Uri.parse(
       '$baseUrl/questions${category != null ? "?category=$category" : ""}',
@@ -25,7 +25,7 @@ class APIService {
     }
   }
 
-  /// Get details for a specific question.
+  /// Get details for a specific question
   Future<Question> getQuestion(String questionId) async {
     final uri = Uri.parse('$baseUrl/questions/$questionId');
     final response = await http.get(uri);
@@ -37,7 +37,7 @@ class APIService {
     }
   }
 
-  /// Retrieve responses for a specific question.
+  /// Retrieve responses for a specific question
   Future<List<Response>> listResponses(String questionId) async {
     final uri = Uri.parse('$baseUrl/questions/$questionId/responses');
     final response = await http.get(uri);
@@ -50,7 +50,7 @@ class APIService {
     }
   }
 
-  /// Create a new response for a given question.
+  /// Create a new response for a given question
   Future<Response> createResponse(String questionId, String text) async {
     final uri = Uri.parse('$baseUrl/questions/$questionId/responses');
     final response = await http.post(
@@ -68,7 +68,7 @@ class APIService {
     }
   }
 
-  /// Create a new question.
+  /// Create a new question
   Future<String> createQuestion(String title, String body, String category) async {
     final uri = Uri.parse('$baseUrl/questions');
     final response = await http.post(
@@ -76,7 +76,7 @@ class APIService {
       headers: {'Content-Type': 'application/json'},
       body: jsonEncode({'title': title, 'body': body, 'category': category}),
     );
-    if (response.statusCode == 201) {  // expecting HTTP 201 Created
+    if (response.statusCode == 201) {
       final data = jsonDecode(response.body);
       return data['id'];
     } else {

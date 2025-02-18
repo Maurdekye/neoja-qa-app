@@ -29,7 +29,7 @@ class MyApp extends StatelessWidget {
         ),
       ],
       child: MaterialApp(
-        title: 'Q&A App',
+        title: 'Neoja Q&A App',
         theme: ThemeData(primarySwatch: Colors.blue),
         initialRoute: '/',
         routes: {

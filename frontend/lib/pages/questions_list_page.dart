@@ -77,7 +77,7 @@ class _QuestionsListPageState extends State<QuestionsListPage> {
             ),
           );
           if (result == true) {
-            // Refetch questions if a new one was created.
+            // Refetch questions if a new one was created
             _fetchQuestions();
           }
         },
