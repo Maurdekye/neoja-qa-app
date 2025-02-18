@@ -4,6 +4,9 @@ import '../services/api_service.dart';
 import '../services/socket_service.dart';
 import '../models/question.dart';
 import '../models/response.dart';
+import '../widgets/question_panel.dart';
+import '../widgets/responses_list.dart';
+import '../widgets/response_input_field.dart';
 
 class QuestionDetailPage extends StatefulWidget {
   final String questionId;
@@ -68,7 +71,6 @@ class _QuestionDetailPageState extends State<QuestionDetailPage> {
   }
 
   void _handleResponseAdded(Response response) {
-    print('New response: $response');
     try {
       setState(() {
         responses.insert(0, response);
@@ -103,52 +105,19 @@ class _QuestionDetailPageState extends State<QuestionDetailPage> {
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+      appBar: AppBar(),
+      body: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Column(
           children: [
-            Text(question?.title ?? "Loading..."),
-            Text(question?.body ?? "", style: TextStyle(fontSize: 12)),
+            QuestionPanel(question: question),
+            ResponsesList(responses: responses),
+            ResponseInputField(
+              controller: responseController,
+              onSubmit: _submitResponse,
+            ),
           ],
         ),
-      ),
-      body: Column(
-        children: [
-          // Display responses
-          Expanded(
-            child: ListView.builder(
-              itemCount: responses.length,
-              itemBuilder: (context, index) {
-                final response = responses[index];
-                return ListTile(
-                  title: Text(response.text),
-                  subtitle: Text(response.author),
-                );
-              },
-            ),
-          ),
-          Divider(),
-          // Input field and send button for a new response
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: responseController,
-                    decoration: InputDecoration(
-                      hintText: 'Your response...',
-                    ),
-                  ),
-                ),
-                IconButton(
-                  icon: Icon(Icons.send),
-                  onPressed: _submitResponse,
-                ),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }

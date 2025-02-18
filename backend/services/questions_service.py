@@ -1,7 +1,7 @@
 from flask import current_app
 from bson import ObjectId
 from models import QuestionModel
-from typing import Dict, Any, Optional, List  # added typing imports
+from typing import Dict, Any, Optional, List
 
 def create_question(data: Dict[str, Any]) -> QuestionModel:
     """

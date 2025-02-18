@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/api_service.dart';
 import '../models/question.dart';
+import '../widgets/questions_list_widget.dart';
 
 class QuestionsListPage extends StatefulWidget {
   @override
@@ -39,23 +40,7 @@ class _QuestionsListPageState extends State<QuestionsListPage> {
       appBar: AppBar(title: Text('Q&A App')),
       body: _loading
           ? Center(child: CircularProgressIndicator())
-          : ListView.builder(
-              itemCount: _questions.length,
-              itemBuilder: (context, index) {
-                final question = _questions[index];
-                return ListTile(
-                  title: Text(question.title),
-                  subtitle: Text(question.body),
-                  onTap: () {
-                    Navigator.pushNamed(
-                      context,
-                      '/questionDetail',
-                      arguments: question.id,
-                    );
-                  },
-                );
-              },
-            ),
+          : QuestionsListWidget(questions: _questions),
     );
   }
 }

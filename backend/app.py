@@ -31,7 +31,7 @@ if __name__ == "__main__":
     # Initialize websocket subscription handlers
     init_subscription_service(socketio)
     
-    # Start a background task to watch for MongoDB changes
+    # Start background task to watch for MongoDB changes
     start_change_stream_watcher(socketio, db["responses"])
     
     socketio.run(
