@@ -53,7 +53,6 @@ class _QuestionSubmissionPageState extends State<QuestionSubmissionPage> {
                     : null,
               ),
               TextFormField(
-                // Set initial value to default category
                 initialValue: category,
                 decoration: InputDecoration(labelText: 'Category'),
                 onSaved: (value) => category = value ?? '',

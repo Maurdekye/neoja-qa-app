@@ -20,10 +20,10 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/qanda")
 mongo_client = MongoClient(MONGO_URI)
 db = mongo_client.get_database()
-
-# Controller registration
 app.config["questions_collection"] = db["questions"]
 app.config["responses_collection"] = db["responses"]
+
+# Controller registration
 app.register_blueprint(questions_bp)
 app.register_blueprint(responses_bp)
 

@@ -1,13 +1,17 @@
 import logging
 from models import ResponseModel
+from pymongo.collection import Collection
+from flask_socketio import SocketIO
 
-def start_change_stream_watcher(socketio, responses_collection):
+def start_change_stream_watcher(socketio: SocketIO, coll: Collection):
+    """
+    Starts a long running task that watches the passed collection 
+    collection for inserts and broadcasts updates.
+    """
+
     def watch_collection():
-        """
-        Watches the 'responses' collection for inserts and broadcasts updates.
-        """
         logging.info("Initializing change stream watcher")
-        with responses_collection.watch() as stream:
+        with coll.watch() as stream:
             for change in stream:
                 if change["operationType"] == "insert":
                     full_doc = change.get("fullDocument")

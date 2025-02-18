@@ -1,9 +1,20 @@
 from bson import ObjectId
 from pydantic import BaseModel, BeforeValidator, Field, field_serializer
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated, Any, Optional
 
 def ensure_str(v: Any) -> Optional[str]:
+    """
+    Ensures that the input value is converted to a string if possible.
+    Args:
+        v (Any): The input value to be converted.
+    Returns:
+        Optional[str]: The string representation of the input value if it can be converted,
+                       otherwise None if the input value is None.
+    Raises:
+        ValueError: If the input value cannot be converted to a string.
+    """
+    
     if v is None:
         return None
     if isinstance(v, ObjectId):
@@ -19,7 +30,7 @@ class QuestionModel(BaseModel):
     title: str
     body: str
     category: Optional[str] = "general"
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     
     @field_serializer('created_at')
     def serialize_created_at(self, created_at: datetime, _info):
@@ -33,7 +44,7 @@ class ResponseModel(BaseModel):
     question_id: Id
     text: str
     author: Optional[str] = "anonymous"
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     @field_serializer('created_at')
     def serialize_created_at(self, created_at: datetime, _info):
